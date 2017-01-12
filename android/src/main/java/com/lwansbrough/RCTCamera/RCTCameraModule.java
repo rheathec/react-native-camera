@@ -611,6 +611,49 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
         }
     }
 
+    public Bitmap scaleBitmap(Bitmap bm, int newWidth, int newHeight, String cameraType) {
+        int width = bm.getWidth();
+        int height = bm.getHeight();
+
+        float ratio = ((float) newWidth) / height * 2;
+        Matrix matrix = new Matrix();
+
+        if (cameraType.equals("front")) {
+            matrix.preScale(-1, 1);
+            matrix.postScale(ratio, ratio);
+        } else {
+            matrix.postScale(ratio, ratio);
+        }
+
+        matrix.postRotate(90);
+
+        Bitmap resizedBitmap = Bitmap.createBitmap(
+                bm, 0, 0, width, height, matrix, true);
+
+        bm.recycle();
+        return resizedBitmap;
+    }
+
+    private byte[] fitToDisplay(byte[] data, int width, int height, String cameraType) {
+
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
+        ByteArrayOutputStream bmpStream = new ByteArrayOutputStream();
+
+        try {
+            Bitmap transformedBitmap = scaleBitmap(BitmapFactory.decodeStream(inputStream), width, height, cameraType);
+            transformedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, bmpStream);
+
+            return bmpStream.toByteArray();
+        } finally {
+            try {
+                inputStream.close();
+                bmpStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     @ReactMethod
     public void capture(final ReadableMap options, final Promise promise) {
         int orientation = options.hasKey("orientation") ? options.getInt("orientation") : RCTCamera.getInstance().getOrientation();
@@ -655,11 +698,18 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
 
         final Boolean shouldMirror = options.hasKey("mirrorImage") && options.getBoolean("mirrorImage");
 
+        final boolean hasDisplaySize = options.hasKey("width") && options.hasKey("height") && options.hasKey("cameraType");
+
         RCTCamera.getInstance().adjustCameraRotationToDeviceOrientation(options.getInt("type"), deviceOrientation);
         camera.setPreviewCallback(null);
         camera.takePicture(null, null, new Camera.PictureCallback() {
+
             @Override
             public void onPictureTaken(byte[] data, Camera camera) {
+
+                if (hasDisplaySize) {
+                    data = fitToDisplay(data, options.getInt("width"), options.getInt("height"), options.getString("cameraType"));
+                }
 
                 if (shouldMirror) {
                     data = mirrorImage(data);
