@@ -43,7 +43,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 public class RCTCameraModule extends ReactContextBaseJavaModule
-    implements MediaRecorder.OnInfoListener, MediaRecorder.OnErrorListener, LifecycleEventListener {
+        implements MediaRecorder.OnInfoListener, MediaRecorder.OnErrorListener, LifecycleEventListener {
     private static final String TAG = "RCTCameraModule";
 
     public static final int RCT_CAMERA_ASPECT_FILL = 0;
@@ -96,7 +96,7 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
     }
 
     public static ReactApplicationContext getReactContextSingleton() {
-      return _reactContext;
+        return _reactContext;
     }
 
     /**
@@ -521,81 +521,6 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
         return saveImage(inputStream, mirroredImage);
     }
 
-
-    private byte[] rotate(byte[] data, int exifOrientation) {
-        final Matrix bitmapMatrix = new Matrix();
-        switch(exifOrientation)
-        {
-            case 1:
-                break;
-            case 2:
-                bitmapMatrix.postScale(-1, 1);
-                break;
-            case 3:
-                bitmapMatrix.postRotate(180);
-                break;
-            case 4:
-                bitmapMatrix.postRotate(180);
-                bitmapMatrix.postScale(-1, 1);
-                break;
-            case 5:
-                bitmapMatrix.postRotate(90);
-                bitmapMatrix.postScale(-1, 1);
-                break;
-            case 6:
-                bitmapMatrix.postRotate(90);
-                break;
-            case 7:
-                bitmapMatrix.postRotate(270);
-                bitmapMatrix.postScale(-1, 1);
-                break;
-            case 8:
-                bitmapMatrix.postRotate(270);
-                break;
-            default:
-                break;
-        }
-
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
-        Bitmap decodedBitmap = BitmapFactory.decodeStream(inputStream);
-        final Bitmap transformedBitmap = Bitmap.createBitmap(
-                decodedBitmap, 0, 0, decodedBitmap.getWidth(), decodedBitmap.getHeight(), bitmapMatrix, false
-        );
-
-        return saveImage(inputStream, transformedBitmap);
-    }
-
-    private byte[] fixOrientation(byte[] data) {
-        final Metadata metadata;
-        try {
-            metadata = ImageMetadataReader.readMetadata(
-                    new BufferedInputStream(new ByteArrayInputStream(data)), data.length
-            );
-
-            final ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            if (exifIFD0Directory == null) {
-                return data;
-            } else if (exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
-                final int exifOrientation = exifIFD0Directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
-                return rotate(data, exifOrientation);
-            }
-            return data;
-        } catch (IOException | ImageProcessingException | MetadataException e) {
-            e.printStackTrace();
-            return data;
-        }
-    }
-
-    private void rewriteOrientation(String path) {
-        try {
-            ExifInterface exif = new ExifInterface(path);
-            exif.setAttribute(ExifInterface.TAG_ORIENTATION, String.valueOf(ExifInterface.ORIENTATION_NORMAL));
-            exif.saveAttributes();
-        } catch (IOException e) {
-            Log.e(TAG, e.getMessage());
-        }
-    }
-
     private byte[] compress(Bitmap bitmap, int quality) throws OutOfMemoryError {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream);
@@ -625,7 +550,9 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
             matrix.postScale(ratio, ratio);
         }
 
-        matrix.postRotate(90);
+        if(width > height) {
+            matrix.postRotate(90);
+        }
 
         Bitmap resizedBitmap = Bitmap.createBitmap(
                 bm, 0, 0, width, height, matrix, true);
@@ -707,6 +634,8 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
             @Override
             public void onPictureTaken(byte[] data, Camera camera) {
 
+                camera.stopPreview();
+
                 if (hasDisplaySize) {
                     data = fitToDisplay(data, options.getInt("width"), options.getInt("height"), options.getString("cameraType"));
                 }
@@ -718,10 +647,6 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
                     }
                 }
 
-                data = fixOrientation(data);
-
-                camera.stopPreview();
-                camera.startPreview();
                 WritableMap response = new WritableNativeMap();
                 switch (options.getInt("target")) {
                     case RCT_CAMERA_CAPTURE_TARGET_MEMORY:
@@ -742,7 +667,6 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
                             return;
                         }
 
-                        rewriteOrientation(cameraRollFile.getAbsolutePath());
                         addToMediaStore(cameraRollFile.getAbsolutePath());
                         response.putString("path", Uri.fromFile(cameraRollFile).toString());
                         promise.resolve(response);
@@ -761,7 +685,6 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
                             return;
                         }
 
-                        rewriteOrientation(pictureFile.getAbsolutePath());
                         response.putString("path", Uri.fromFile(pictureFile).toString());
                         promise.resolve(response);
                         break;
@@ -778,7 +701,6 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
                             promise.reject(error);
                         }
 
-                        rewriteOrientation(tempFile.getAbsolutePath());
                         response.putString("path", Uri.fromFile(tempFile).toString());
                         promise.resolve(response);
                         break;
