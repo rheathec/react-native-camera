@@ -345,6 +345,15 @@ public class RCTCamera {
         }
     }
 
+    public CameraInfoWrapper getCameraInfo(int type){
+        Camera camera = _cameras.get(type);
+        if (null == camera) {
+            return null;
+        }
+
+        return _cameraInfos.get(type);
+    }
+
     public void adjustCameraRotationToDeviceOrientation(int type, int deviceOrientation) {
         Camera camera = _cameras.get(type);
         if (null == camera) {
@@ -443,7 +452,7 @@ public class RCTCamera {
         }
     }
 
-    private class CameraInfoWrapper {
+    public class CameraInfoWrapper {
         public final Camera.CameraInfo info;
         public int rotation = 0;
         public int previewWidth = -1;
