@@ -7,19 +7,14 @@ package com.lwansbrough.RCTCamera;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.os.AsyncTask;
 import android.view.MotionEvent;
 import android.view.TextureView;
-import android.os.AsyncTask;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-
-import java.util.List;
-import java.util.EnumMap;
-import java.util.EnumSet;
-
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.DecodeHintType;
@@ -28,12 +23,17 @@ import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
+
 class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceTextureListener, Camera.PreviewCallback {
     private int _cameraType;
     private int _captureMode;
     private SurfaceTexture _surfaceTexture;
     private boolean _isStarting;
     private boolean _isStopping;
+    private boolean _isSurfaceReady = false;
     private Camera _camera;
     private float mFingerSpacing;
 
@@ -174,6 +174,8 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
                     _camera.setPreviewCallback(null);
                     RCTCamera.getInstance().releaseCameraInstance(_cameraType);
                     _camera = null;
+
+                    emitCameraStatus(false);
                 }
 
             } catch (Exception e) {
@@ -264,7 +266,28 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
             RCTCameraViewFinder.barcodeScannerTaskLock = true;
             new ReaderAsyncTask(camera, data).execute();
         }
+
+        emitCameraStatus(true);
     }
+
+
+    private void emitCameraStatus(boolean ready) {
+
+        if(ready == this._isSurfaceReady){
+            return;
+        }
+
+        this._isSurfaceReady = ready;
+
+        WritableMap event = Arguments.createMap();
+        event.putBoolean("ready", ready);
+
+        ReactContext reactContext = RCTCameraModule.getReactContextSingleton();
+        if(reactContext.hasActiveCatalystInstance()) {
+            reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("CameraPreviewStatus", event);
+        }
+    }
+
 
     private class ReaderAsyncTask extends AsyncTask<Void, Void, Void> {
         private byte[] imageData;
