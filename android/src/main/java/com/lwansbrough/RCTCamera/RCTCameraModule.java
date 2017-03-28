@@ -5,7 +5,9 @@
 
 package com.lwansbrough.RCTCamera;
 
+import android.app.Activity;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -83,6 +85,7 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
     public static final String RCT_CAMERA_CAPTURE_QUALITY_480P = "480p";
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
+    public static final String JSON_CAMERA_AVAILABLE_FIELD = "available";
 
     private static ReactApplicationContext _reactContext;
     private RCTSensorOrientationChecker _sensorOrientationChecker;
@@ -586,8 +589,31 @@ public class RCTCameraModule extends ReactContextBaseJavaModule
     @ReactMethod
     public void isCameraAvailable(final Promise promise) {
         WritableMap response = new WritableNativeMap();
-        boolean available = getCurrentActivity().getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-        response.putBoolean("available", available);
+
+        Activity activity = getCurrentActivity();
+        if (activity == null) {
+            response.putBoolean(JSON_CAMERA_AVAILABLE_FIELD, false);
+            promise.resolve(response);
+            return;
+        }
+
+        Context ctx = activity.getApplicationContext();
+
+        if (ctx == null) {
+            response.putBoolean(JSON_CAMERA_AVAILABLE_FIELD, false);
+            promise.resolve(response);
+            return;
+        }
+
+        PackageManager pm = ctx.getPackageManager();
+
+        if (pm == null) {
+            response.putBoolean(JSON_CAMERA_AVAILABLE_FIELD, false);
+            promise.resolve(response);
+            return;
+        }
+
+        response.putBoolean(JSON_CAMERA_AVAILABLE_FIELD, pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY));
         promise.resolve(response);
     }
 
