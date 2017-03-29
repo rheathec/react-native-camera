@@ -8,6 +8,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.AsyncTask;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.TextureView;
 
@@ -393,13 +394,21 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
         float y = event.getY(pointerIndex);
 
         List<String> supportedFocusModes = params.getSupportedFocusModes();
-        if (supportedFocusModes != null && supportedFocusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
-            _camera.autoFocus(new Camera.AutoFocusCallback() {
-                @Override
-                public void onAutoFocus(boolean b, Camera camera) {
-                    // currently set to auto-focus on single touch
+        if (_isSurfaceReady && supportedFocusModes != null && supportedFocusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            try {
+                _camera.autoFocus(new Camera.AutoFocusCallback() {
+                    @Override
+                    public void onAutoFocus(boolean b, Camera camera) {
+                        // currently set to auto-focus on single touch
+                    }
+                });
+            }catch (RuntimeException re){
+                String msg = re.getMessage();
+                if(msg == null){
+                    msg = "can't handle autofocus";
                 }
-            });
+                Log.e("RCTCamera", msg);
+            }
         }
     }
 
